@@ -55,7 +55,7 @@ int main() {
         while (1) {
             number_to_guess = rand() % 100 + 1;
             int attempts = 0;
-            printf("Загаданное число: %d\n", number_to_guess);
+            printf("Предполагаемое число: %d\n", number_to_guess);
 
             int fd = open(FIFO_NAME1, O_RDONLY);
             read(fd, &guess, sizeof(guess));
