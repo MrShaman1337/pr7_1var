@@ -4,80 +4,86 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
-#include <string.h>
+#include <time.h>
 
-#define FIFO_NAME1 "fifo1"
+#define FIFO_NAME1 "fifo1" 
 #define FIFO_NAME2 "fifo2"
 
 int main() {
+    srand(time(NULL));
+
     if (mkfifo(FIFO_NAME1, 0666) == -1) {
-        perror("Ошибка создания fifo1");
+        perror("Ошибка создания канала fifo1");
         exit(1);
     }
     if (mkfifo(FIFO_NAME2, 0666) == -1) {
-        perror("Ошибка создания fifo2");
+        perror("Ошибка создания канала fifo2");
         exit(1);
     }
 
     pid_t pid = fork();
-
     if (pid == 0) {
 
-        int guess, attempts = 0;
+        int low = 1, high = 100, guess, attempts = 0;
+        int correct = 0;
         while (1) {
- 
-            int fd = open(FIFO_NAME2, O_RDONLY);
-            read(fd, &guess, sizeof(guess));
-            close(fd);
-
-   
-            guess = rand() % 100 + 1;
+            guess = (low + high) / 2;
             attempts++;
-            printf("Попытка отгадывания %d: %d\n", attempts, guess);
+            printf("Попытка угадывания %d: %d\n", attempts, guess);
 
-
-            fd = open(FIFO_NAME1, O_WRONLY);
+            int fd = open(FIFO_NAME1, O_WRONLY);
             write(fd, &guess, sizeof(guess));
             close(fd);
 
             fd = open(FIFO_NAME2, O_RDONLY);
-            int correct;
             read(fd, &correct, sizeof(correct));
             close(fd);
 
-            if (correct) {
-                printf("Число было подобрано на %d попытку\n", attempts);
-                break; 
+            if (correct == 0) {
+                printf("Число меньше!\n");
+                high = guess - 1;
+            } else if (correct == 1) {
+                printf("Число больше!\n");
+                low = guess + 1;
+            } else if (correct == 2) {
+                printf("Число было отгаданно через %d попыток\n", attempts);
+                break;
             }
         }
     } else {
-
-        int number_to_guess, attempts = 0;
+        int number_to_guess, guess;
         while (1) {
             number_to_guess = rand() % 100 + 1;
-            attempts = 0; 
+            int attempts = 0;
             printf("Загаданное число: %d\n", number_to_guess);
 
             int fd = open(FIFO_NAME1, O_RDONLY);
-            int guess;
             read(fd, &guess, sizeof(guess));
             close(fd);
 
             attempts++;
-            int correct = (guess == number_to_guess);
-            printf("Попытка %d: %d\n", attempts, guess);
+            printf("Попыток %d: Загаданное число %d\n", attempts, guess);
 
-            fd = open(FIFO_NAME2, O_WRONLY);
-            write(fd, &correct, sizeof(correct));
-            close(fd);
-
-            if (correct) {
-                printf("Число было подобрано на %d попытку\n", attempts);
+            if (guess == number_to_guess) {
+                int correct = 2;
+                fd = open(FIFO_NAME2, O_WRONLY);
+                write(fd, &correct, sizeof(correct));
+                close(fd);
+                printf("Число угадано верно.\n");
                 break;
+            } else if (guess < number_to_guess) {
+                int correct = 1;
+                fd = open(FIFO_NAME2, O_WRONLY);
+                write(fd, &correct, sizeof(correct));
+                close(fd);
+            } else if (guess > number_to_guess) {
+                int correct = 0;
+                fd = open(FIFO_NAME2, O_WRONLY);
+                write(fd, &correct, sizeof(correct));
+                close(fd);
             }
         }
     }
-
 
     unlink(FIFO_NAME1);
     unlink(FIFO_NAME2);
